@@ -3,9 +3,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1c1f2e">
   <title>PHENOTYPE v1.6</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
@@ -86,8 +85,6 @@
 </head>
 <body>
   <div id="root"></div>
-  <div id="err" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#1c1f2e;color:#ef4444;font-family:monospace;padding:20px;font-size:11px;overflow:auto;z-index:9999;"></div>
-  <div id="loading" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#22c55e;font-family:monospace;font-size:14px;letter-spacing:3px;">LOADING...</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script>
@@ -176,7 +173,7 @@ return templates[idx]
 function selectCollateralTrait(upgradedId, sourceGroup, traits, seedIn) {
 var seed = seedIn;
 var tradeoffGroups = TRADEOFF_MAP[sourceGroup] || [];
-if (tradeoffGroups.length == 0) return { seed, collateralId: null, targetGroup: null };
+if (tradeoffGroups.length == 0) return { seed: seed, collateralId: null, targetGroup: null };
 
 var groupOrder = tradeoffGroups.slice();
 
@@ -198,12 +195,12 @@ if (candidates.length == 0) continue;
 ```
 var selSeed = lcg(seed); seed = selSeed;
 var collateralId = candidates[selSeed % candidates.length];
-return { seed, collateralId, targetGroup: tGroup };
+return { seed: seed, collateralId: collateralId, targetGroup: tGroup };
 ```
 
 }
 
-return { seed, collateralId: null, targetGroup: null };
+return { seed: seed, collateralId: null, targetGroup: null };
 }
 
 function lcg(seed) { return (seed * 48271) % 2147483647; }
@@ -253,7 +250,7 @@ var t3count = 0;
 
 for (var i = 0; i < 5; i++) {
 var sr = statRoll(seed); seed = sr.seed;
-var trait = TRAITS[sr.statId - 1];
+var statId = Math.max(1,Math.min(300,sr.statId|0))||1; var trait = TRAITS[statId - 1] || TRAITS[0];
 
 ```
 if (i == 4 && t3count == 0) {
@@ -271,7 +268,7 @@ rolls.push({ trait, mag: mr.mag });
 ```
 
 }
-return { rolls, seed };
+return { rolls: rolls, seed: seed };
 }
 
 function buildBaseline(seed) {
@@ -294,7 +291,7 @@ else if (idx < 280) level = 4;
 else level = 3;
 traits[id] = { level, mastered: false };
 }
-return { traits, seed: s };
+return { traits: traits, seed: s };
 }
 
 function findNewSynergies(traits, existing) {
@@ -348,7 +345,7 @@ function push(msg, type) { if (!type) type = “info”;
 var nid = id.current++;
 setFeed(function(f) { return [{ nid: nid, msg: msg, type: type }].concat(f.slice(0, 49)); });
 }
-return { notifs: feed, push };
+return { notifs: feed, push: push };
 }
 
 function InitScreen(props) {
@@ -483,8 +480,8 @@ function GameScreen(props) {
 var init=props.init;
 var onReset=props.onReset;
 var _notifs = useNotifs(); var push = _notifs.push; var notifs = _notifs.notifs;
-var _s3 = useState(init); var gs=_s3[0]; var setGs=_s3[1];
-var _s4 = useState(init.genesisLog || []); var log=_s4[0]; var setLog=_s4[1];
+var _s3 = useState(Object.assign({}, init, {log: init.genesisLog||[]})); var gs=_s3[0]; var setGs=_s3[1];
+var log = gs.log || [];
 var _s5 = useState(“traits”); var tab=_s5[0]; var setTab=_s5[1];
 var _s6 = useState({}); var flashIds=_s6[0]; var setFlashIds=_s6[1];
 var _s7 = useState(””); var codexFilter=_s7[0]; var setCodexFilter=_s7[1];
@@ -497,7 +494,7 @@ var _s12 = useState(false); var isRolling=_s12[0]; var setIsRolling=_s12[1];
 var allTraits = Object.keys(gs.traits).map(function(id) {
 var d = gs.traits[id]; var t = TRAITS[+id-1];
 return Object.assign({}, t, d, { id: +id });
-}).sort(function(a,b) { return (b.level - a.level) || (T[b.tier].rank - T[a.tier].rank); });
+}).sort(function(a,b) { return (b.level - a.level) || ((T[b.tier]?T[b.tier].rank:0) - (T[a.tier]?T[a.tier].rank:0)); });
 
 var traitList = allTraits.filter(function(t) {
 if (traitTier != “ALL” && t.tier != traitTier) return false;
@@ -520,10 +517,9 @@ var phaseType = prev.phase.type;
   var resonanceOverride = false;
   if (phaseType == "RESONANCE SURGE" && Math.random() < 0.3) {
     var t3s = TRAITS.filter(function(t) { return t.tier == "T3"; });
-    traitId = t3s[seed % t3s.length].id;
-    resonanceOverride = true;
+    if (t3s.length > 0) { traitId = t3s[Math.abs(seed) % t3s.length].id; resonanceOverride = true; }
   }
-  var trait = TRAITS[traitId - 1];
+  var trait = TRAITS[traitId - 1] || TRAITS[0];
   var isPrime = PRIME_IDS[traitId];
   entry.steps.push({
     k: "STAT",
@@ -562,16 +558,16 @@ var phaseType = prev.phase.type;
     v: ""+( prev_level )+" + "+( mag )+" = "+( newLevel )+""+( justMastered ? " * MASTERED" : "" )+"",
   });
   traits[traitId] = { level: newLevel, mastered: newLevel >= 10 };
-  setFlashIds(function(f) { var n=Object.assign({},f); n[traitId]=true; return n; });
-  setTimeout(function() { setFlashIds(function(f) { var n=Object.assign({},f); delete n[traitId]; return n; }); }, 700);
+```
 
-  var collateralId = null;
-  var collateralSev = 0;
-  var collateralFlavor = "";
-  var collateralName = "";
-  if (negTriggered) {
-    var sourceGroup = TRAIT_GROUP[traitId];
+var collateralId = null;
+var collateralSev = 0;
+var collateralFlavor = “”;
+var collateralName = “”;
+if (negTriggered) {
+var sourceGroup = TRAIT_GROUP[traitId];
 
+```
     var colSeedIn = seed;
     var colResult = selectCollateralTrait(traitId, sourceGroup, traits, seed);
     seed = colResult.seed;
@@ -596,13 +592,13 @@ var phaseType = prev.phase.type;
       var colNewLevel = Math.max(1, colPrevLevel + collateralSev);
       traits[collateralId] = Object.assign({}, traits[collateralId], { level: colNewLevel });
       collateralName = TRAITS[collateralId-1].name;
-      setFlashIds(function(f) { var n=Object.assign({},f); n[collateralId]=true; return n; });
-      setTimeout(function() { setFlashIds(function(f) { var n=Object.assign({},f); delete n[collateralId]; return n; }); }, 700);
+```
 
-      var flavorSeedIn = seed;
-      var fs = lcg(seed); seed = fs;
-      collateralFlavor = getCollateralFlavor(trait.name, collateralName, sourceGroup, targetGroup, fs);
+var flavorSeedIn = seed;
+var fs = lcg(seed); seed = fs;
+collateralFlavor = getCollateralFlavor(trait.name, collateralName, sourceGroup, targetGroup, fs);
 
+```
       entry.steps.push({
         k: "COL-APPLY",
         v: ""+( collateralName )+": "+( colPrevLevel )+" "+( collateralSev )+" = "+( colNewLevel )+"",
@@ -616,15 +612,12 @@ var phaseType = prev.phase.type;
     }
   }
 
-  if (justMastered) push("* ASCENSION - "+( trait.name )+" IS MASTERED", "mastery");
-  else if (negTriggered && collateralId) push("! COLLATERAL - "+( collateralName )+" "+( collateralSev )+" (via "+( trait.name )+")", "negative");
-  else if (mag == 3) push("* CRITICAL ROLL - "+( trait.name )+" +3", "crit");
 
   var phase = Object.assign({}, prev.phase);
   var phaseShifts = prev.vol.phaseShifts;
   if (phase.remaining > 0) {
     phase.remaining--;
-    if (phase.remaining == 0) { phase = { type:"NEUTRAL", remaining:0 }; push("o Phase expired - NEUTRAL", "phase"); }
+    if (phase.remaining == 0) { phase = { type:"NEUTRAL", remaining:0 }; }
   }
   var phaseSeedIn = seed;
   var pc = phaseCheck(seed); seed = pc.seed;
@@ -643,16 +636,14 @@ var phaseType = prev.phase.type;
       k: "PHASE->",
       v: "type seed "+( ptSeedIn )+" -> "+( pt.type )+" | dur seed "+( pdSeedIn )+" -> "+( pd.dur )+" turns",
     });
-    push("* PHASE SHIFT - "+( pt.type )+" ("+( pd.dur )+" turns)", "phase");
   }
 
   var newSyn = findNewSynergies(traits, prev.synergySet);
   var synergySet = Object.assign({}, prev.synergySet);
   var synergyList = prev.synergyList.slice();
   for (var _si=0; _si<newSyn.length; _si++) { var s = newSyn[_si];
-    _addToSynergySet(synergySet, s.key);
+    synergySet[s.key] = true;
     synergyList.push(s);
-    push("* SYNERGY - "+( s.name )+""+( s.isPP ? " [PRIMExPRIME]" : "" )+"", "synergy");
     entry.steps.push({ k: "SYNERGY", v: ""+( s.name )+" unlocked (both traits >= 8)" });
   }
 
@@ -684,9 +675,8 @@ var phaseType = prev.phase.type;
   entry.phaseNewType = pc.triggered ? phase.type : null;
   entry.phaseNewDur = pc.triggered ? phase.remaining : null;
   entry.seedIn = statSeedIn;
-  setLog(function(l) { return [entry].concat(l.slice(0, 199)); });
-
-  return Object.assign({}, prev, { seed: seed, traits: traits, phase: phase, synergySet: synergySet, synergyList: synergyList, ascendancy: ascendancy, vol: vol, turn: prev.turn + 1 });
+  var newLog = [entry].concat((prev.log||[]).slice(0,199));
+  return Object.assign({}, prev, { seed: seed, traits: traits, phase: phase, synergySet: synergySet, synergyList: synergyList, ascendancy: ascendancy, vol: vol, turn: prev.turn + 1, log: newLog });
 });
 ```
 
@@ -694,16 +684,11 @@ var phaseType = prev.phase.type;
 
 function advanceMulti() {
 var n = Math.max(1, Math.min(1000, parseInt(rollCount) || 1));
-if (n == 1) { advance(); return; }
 setIsRolling(true);
-var _rollsDone = 0;
-var _tick = function() {
-advance();
-_rollsDone++;
-if (_rollsDone < n) requestAnimationFrame(_tick);
-else setIsRolling(false);
-};
-requestAnimationFrame(_tick);
+setTimeout(function() {
+for (var i = 0; i < n; i++) { advance(); }
+setIsRolling(false);
+}, 10);
 }
 
 var codexData = TRAITS.map(function(t) {
@@ -715,7 +700,7 @@ var f = codexFilter.toLowerCase();
 return t.name.toLowerCase().includes(f) || t.tier.toLowerCase().includes(f);
 }).sort(function(a, b) {
 if (codexSort == “tier”) {
-var tr = T[b.tier].rank - T[a.tier].rank;
+var tr = (T[b.tier]?T[b.tier].rank:0) - (T[a.tier]?T[a.tier].rank:0);
 return tr != 0 ? tr : b.level - a.level;
 }
 if (codexSort == “level”) return (b.level || 0) - (a.level || 0);
@@ -729,8 +714,8 @@ var proximitySynergies = SYNERGY_PAIRS
 var a = pair[0]; var b = pair[1]; var name = pair[2]; var isPP = pair[3]; var desc = pair[4];
 var la = (gs.traits[a] ? gs.traits[a].level : 0);
 var lb = (gs.traits[b] ? gs.traits[b].level : 0);
-var ta = TRAITS[a - 1];
-var tb = TRAITS[b - 1];
+var ta = TRAITS[a - 1] || TRAITS[0];
+var tb = TRAITS[b - 1] || TRAITS[0];
 var gapA = Math.max(0, 8 - la);
 var gapB = Math.max(0, 8 - lb);
 var totalGap = gapA + gapB;
@@ -754,7 +739,7 @@ var phaseInfo = PHASE_CFG[gs.phase.type] || PHASE_CFG[“NEUTRAL”];
 function renderTraits() {
 if (traitList.length == 0) return E(“div”,{className:“gs-empty”},“NO TRAITS YET”);
 return traitList.map(function(t) {
-var tc=T[t.tier]; var cat=getCat(t.id); var isFlash=flashIds[t.id];
+var tc=T[t.tier]||T[“T1”]; var cat=getCat(t.id); var isFlash=flashIds[t.id];
 return E(“div”,{key:t.id,className:“trait-card”+(isFlash?” stat-flash”:””),style:{borderLeft:“4px solid “+tc.borderColor,background:“linear-gradient(135deg,”+tc.bgTint+” 0%,#1c1f2e 100%)”}},
 E(“div”,{className:“trait-row”},
 E(“div”,{className:“trait-tier-badge”,style:{background:tc.badgeBg,border:“1px solid “+tc.badgeBorder,color:tc.color}},t.tier),
@@ -775,7 +760,7 @@ E(“div”,{className:“trait-bar-row”},
 function renderAscendancy() {
 if (gs.ascendancy.length==0) return E(“div”,{className:“gs-empty”},“NO TRAITS MASTERED YET”);
 return gs.ascendancy.map(function(id,idx) {
-var t=TRAITS[id-1]; var tc=T[t.tier]; var cat=getCat(id);
+var t=TRAITS[id-1]; var tc=T[t.tier]||T[“T1”]; var cat=getCat(id);
 return E(“div”,{key:id,className:“asc-card”,style:{borderLeft:“4px solid “+tc.borderColor,background:“linear-gradient(135deg,”+tc.bgTint+” 0%,#1c1f2e 100%)”}},
 E(“div”,{className:“asc-num”},“ASCENSION #”+(“0”+(idx+1)).slice(-2)),
 E(“div”,{className:“trait-row”},
@@ -794,7 +779,7 @@ function renderSynergies() {
 var active = gs.synergyList.length==0?null:E(“div”,{key:“active”},
 E(“div”,{className:“gs-section-lbl”},“ACTIVE BONDS”),
 gs.synergyList.map(function(s) {
-var t1=TRAITS[s.a-1]; var accent=T[t1.tier]?T[t1.tier].color:”#3b82f6”;
+var t1=TRAITS[s.a-1]; var accent=(T[t1.tier]||T[“T1”]).color;
 return E(“div”,{key:s.key,className:“syn-card”,style:{borderLeft:“4px solid “+accent}},
 E(“div”,{className:“syn-name”},s.name),
 s.isPP?E(“div”,{className:“syn-pp”},”* PRIMExPRIME”):null,
@@ -828,7 +813,7 @@ E(“input”,{type:“text”,placeholder:“Search 300 traits…”,value:code
 ),
 E(“div”,{key:“count”,className:“gs-count”},codexData.length+” / 300”),
 codexData.map(function(t) {
-var tc=T[t.tier];
+var tc=T[t.tier]||T[“T1”];
 return E(“div”,{key:t.id,className:“codex-card”,style:{borderLeft:“3px solid “+tc.borderColor+(t.active?””:“55”),opacity:t.active?1:0.4,background:t.active?“linear-gradient(135deg,”+tc.bgTint+” 0%,#1c1f2e 100%)”:”#1a2235”}},
 E(“div”,{className:“trait-row”},
 E(“div”,{className:“trait-tier-badge”,style:{background:tc.badgeBg,border:“1px solid “+tc.badgeBorder,color:tc.color}},t.tier),
@@ -1039,48 +1024,15 @@ setScreen("game");
 
 var E = React.createElement;
 return E(React.Fragment, null,
-E(“style”, null, CSS),
 screen == “init” ? E(InitScreen, {onStart: handleStart}) : null,
 screen == “genesis” && genesisData ? E(GenesisScreen, {rolls:genesisData.rolls, revealed:genesisRevealed, onReveal:handleReveal, onComplete:handleComplete}) : null,
 screen == “game” && gameInit ? E(GameScreen, {init:gameInit, onReset:function(){setScreen(“init”);setGenesisData(null);setGameInit(null);setGenesisRevealed(0);}}) : null
 );
 }
 
-function showErr(msg, stack) {
-document.getElementById(‘loading’).style.display = ‘none’;
-var el = document.getElementById(‘err’);
-el.style.display = ‘block’;
-el.innerHTML = ‘<div style="color:#ef4444;font-size:16px;margin-bottom:12px">ERROR</div><div style="color:#fbbf24;margin-bottom:8px;word-break:break-word">’+msg+’</div><pre style="color:rgba(255,255,255,0.4);font-size:9px;white-space:pre-wrap">’+(stack||’’).slice(0,600)+’</pre>’;
-}
-
-// Simple error boundary using class component
-var SafeApp = (function() {
-function SA(props) { React.Component.call(this, props); this.state = {err: null, info: null}; }
-SA.prototype = Object.create(React.Component.prototype);
-SA.getDerivedStateFromError = function(e) { return {err: e}; };
-SA.prototype.componentDidCatch = function(e, info) {
-showErr(e.message, (e.stack||’’) + ’
-
-Component: ’ + (info&&info.componentStack||’’));
-};
-SA.prototype.render = function() {
-if (this.state.err) return null;
-return this.props.children;
-};
-return SA;
-})();
-
-window.onerror = function(msg, src, line, col, err) {
-showErr(msg + ’ (line ‘+line+’)’, err ? err.stack : ‘’);
-};
-
-try {
-var root = ReactDOM.createRoot(document.getElementById(‘root’));
-root.render(React.createElement(SafeApp, null, React.createElement(App, null)));
-document.getElementById(‘loading’).style.display = ‘none’;
-} catch(e) {
-showErr(e.message, e.stack);
-}
+ReactDOM.createRoot(document.getElementById(‘root’)).render(
+React.createElement(App, null)
+);
 </script>
 
 </body>
