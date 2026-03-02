@@ -1046,23 +1046,40 @@ screen == “game” && gameInit ? E(GameScreen, {init:gameInit, onReset:functio
 );
 }
 
-document.getElementById(‘loading’).textContent = ‘STARTING…’;
-window.onerror = function(msg, src, line, col, err) {
-document.getElementById(‘loading’).style.display = ‘none’;
-var e = document.getElementById(‘err’);
-e.style.display = ‘block’;
-e.innerHTML = ‘<div style="color:#ef4444;font-size:16px;margin-bottom:12px">ERROR</div><div style="color:#fbbf24;margin-bottom:8px">’+msg+’</div><div style="color:rgba(255,255,255,0.4)">Line: ‘+line+’</div>’;
-};
-try {
-ReactDOM.createRoot(document.getElementById(‘root’)).render(
-React.createElement(App, null)
-);
-document.getElementById(‘loading’).style.display = ‘none’;
-} catch(e) {
+function showErr(msg, stack) {
 document.getElementById(‘loading’).style.display = ‘none’;
 var el = document.getElementById(‘err’);
 el.style.display = ‘block’;
-el.innerHTML = ‘<div style="color:#ef4444;font-size:16px;margin-bottom:12px">STARTUP ERROR</div><div style="color:#fbbf24;margin-bottom:8px">’+e.message+’</div><pre style="color:rgba(255,255,255,0.4);font-size:9px;white-space:pre-wrap">’+(e.stack||’’).slice(0,400)+’</pre>’;
+el.innerHTML = ‘<div style="color:#ef4444;font-size:16px;margin-bottom:12px">ERROR</div><div style="color:#fbbf24;margin-bottom:8px;word-break:break-word">’+msg+’</div><pre style="color:rgba(255,255,255,0.4);font-size:9px;white-space:pre-wrap">’+(stack||’’).slice(0,600)+’</pre>’;
+}
+
+// Simple error boundary using class component
+var SafeApp = (function() {
+function SA(props) { React.Component.call(this, props); this.state = {err: null, info: null}; }
+SA.prototype = Object.create(React.Component.prototype);
+SA.getDerivedStateFromError = function(e) { return {err: e}; };
+SA.prototype.componentDidCatch = function(e, info) {
+showErr(e.message, (e.stack||’’) + ’
+
+Component: ’ + (info&&info.componentStack||’’));
+};
+SA.prototype.render = function() {
+if (this.state.err) return null;
+return this.props.children;
+};
+return SA;
+})();
+
+window.onerror = function(msg, src, line, col, err) {
+showErr(msg + ’ (line ‘+line+’)’, err ? err.stack : ‘’);
+};
+
+try {
+var root = ReactDOM.createRoot(document.getElementById(‘root’));
+root.render(React.createElement(SafeApp, null, React.createElement(App, null)));
+document.getElementById(‘loading’).style.display = ‘none’;
+} catch(e) {
+showErr(e.message, e.stack);
 }
 </script>
 
